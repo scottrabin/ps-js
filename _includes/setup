@@ -1,0 +1,7 @@
+{% capture nooutput %}
+	{% if site.safe and site.BASE_PATH %}
+		{% assign BASE_PATH = site.BASE_PATH %}
+	{% else %}
+		{% assign BASE_PATH = '' %}
+	{% endif %}
+{% endcapture %}

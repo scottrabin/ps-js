@@ -1,0 +1,33 @@
+{% include setup %}
+<!DOCTYPE html>
+<html>
+<head>
+	<title>{{ page.title }}</title>
+
+	{% for style in page.styles %}
+		{% if style contains "vendor" %}
+			{% capture src %}{{ BASE_PATH }}/{{ style }}{% endcapture %}
+		{% elsif style contains "asset" %}
+			{% capture src %}{{ BASE_PATH }}/assets/{{ style | split:'/' | last }}{% endcapture %}
+		{% else %}
+			{% assign src = style %}
+		{% endif %}
+		<link rel="stylesheet" href="{{ src }}" />
+	{% endfor %}
+	{% for script in page.scripts %}
+		{% if script contains "vendor" %}
+			{% capture src %}{{ BASE_PATH }}/{{ script }}{% endcapture %}
+		{% elsif script contains "asset" %}
+			{% capture src %}{{ BASE_PATH }}/assets/{{ script | remove_first:'asset/' }}{% endcapture %}
+		{% else %}
+			{% assign src = script %}
+		{% endif %}
+		<script type="text/javascript" src="{{ src }}"></script>
+	{% endfor %}
+</head>
+<body>
+
+	{{ content }}
+
+</body>
+</html>
