@@ -21,7 +21,19 @@
 	 * Basic observable set - sets the current value of the observable
 	 */
 	Observable.prototype.set = function(v) {
+		// store the old value
+		var oldValue = this.get();
+
+		// trigger the "change:before" event
+		this.trigger('change:before', oldValue, v, this);
+
+		// set the value
 		this._value = v;
+
+		// trigger the "change" event
+		this.trigger('change', v, oldValue, this);
+
+		// chain
 		return this;
 	};
 	/**
