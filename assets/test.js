@@ -14,11 +14,11 @@ test('ps.create(primitive)', function() {
 	obj = ps.create({test: true}),
 	arr = ps.create([1,2,3]);
 
-	deepEqual(num._value, 5, "works with numbers");
-	deepEqual(str._value, 'test', "works with strings");
-	deepEqual(bool._value, true, "works with booleans");
-	deepEqual(obj._value, {test: true}, "works with objects");
-	deepEqual(arr._value, [1,2,3], "works with arrays");
+	deepEqual(num.get(), 5, "works with numbers");
+	deepEqual(str.get(), 'test', "works with strings");
+	deepEqual(bool.get(), true, "works with booleans");
+	deepEqual(obj.get(), {test: true}, "works with objects");
+	deepEqual(arr.get(), [1,2,3], "works with arrays");
 });
 
 test('ps.get (primitive)', function() {
@@ -31,7 +31,7 @@ test('ps.get (primitive)', function() {
 	equal(bool.get(), true, "obj.get returns the right value for a boolean");
 });
 
-test('ps.set', function() {
+test('ps.set (primitive)', function() {
 	var num = ps.create(5),
 	str = ps.create('test'),
 	bool = ps.create(true);
