@@ -105,34 +105,46 @@ test('ps.observable.on / ps.observable.off / ps.observable.trigger', function() 
 });
 
 test('ps.observable.on (primitive)', function() {
-	var initialVal = 5,
-		setVal     = 10,
-		primObs    = ps.create(initialVal),
-		called     = {
-			'change:before' : 0,
+	var values  = [5, 10, 15],
+		primObs = ps.create(values[0]),
+		called  = {
+			'before:change' : 0,
 			'change': 0
 		};
 
-	primObs.on('change:before', function(currentVal, newVal, obs) {
-		equal( arguments.length, 3, 'Primitive change:before expects 3 arguments' );
-		equal( currentVal, initialVal, 'Argument 1: the pre-change value' );
-		equal( newVal, setVal, 'Argument 2: the post-change value' );
+	primObs.on('before:change', function(currentVal, newVal, obs) {
+		equal( arguments.length, 3, 'Primitive before:change expects 3 arguments' );
+		equal( currentVal, values[0], 'Argument 1: the pre-change value' );
+		equal( newVal, values[1], 'Argument 2: the post-change value' );
 		equal( obs, primObs, 'Argument 3: the observable object' );
 
-		called['change:before'] += 1;
+		called['before:change'] += 1;
 	});
 
 	primObs.on('change', function(currentVal, oldVal, obs) {
 		equal( arguments.length, 3, 'Primitive `change` expects 3 arguments' );
-		equal( currentVal, setVal, 'Argument 1: the post-change value' );
-		equal( oldVal, initialVal, 'Argument 2: the pre-change value' );
+		equal( currentVal, values[1], 'Argument 1: the post-change value' );
+		equal( oldVal, values[0], 'Argument 2: the pre-change value' );
 		equal( obs, primObs, 'Argument 3: the observable object' );
 
 		called['change'] += 1;
 	});
 
-	primObs.set(setVal);
+	primObs.set(values[1]);
 
-	equal( called['change:before'], 1, 'Event `change:before` called' );
+	equal( called['before:change'], 1, 'Event `before:change` called' );
 	equal( called['change'], 1, 'Event `change` called' );
+
+	primObs.off('change');
+	primObs.off('before:change');
+	// prevent the change from occurring (e.g. validation)
+	primObs.on('before:change', function() {
+		return false;
+	});
+
+	primObs.set(values[2]);
+
+	// verify that the value did not actually change
+	equal( primObs.get(), values[1], 'If a `before:change` callback returns false, the change will be aborted' );
+
 });
