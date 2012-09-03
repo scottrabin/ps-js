@@ -6,32 +6,29 @@ test('ps.create', function() {
 	equal( typeof obj.set, 'function', "that object should have a `set` function" );
 });
 
-test('ps.create(primitive)', function() {
+module( 'ps.observable (primitive)' );
+test('[ ps.create(primitive) ]', function() {
 	// verify that the default value on the object is the one set in the constructor
-	var num = ps.create(5),
-		str = ps.create('test'),
-		bool = ps.create(true),
-		obj = ps.create({test: true}),
-		arr = ps.create([1,2,3]);
-
-	deepEqual(num.get(), 5, "works with numbers");
-	deepEqual(str.get(), 'test', "works with strings");
-	deepEqual(bool.get(), true, "works with booleans");
-	deepEqual(obj.get(), {test: true}, "works with objects");
-	deepEqual(arr.get(), [1,2,3], "works with arrays");
-});
-
-test('ps.get (primitive)', function() {
 	var num = ps.create(5),
 		str = ps.create('test'),
 		bool = ps.create(true);
 
-	equal(num.get(), 5, "obj.get returns the right number");
-	equal(str.get(), 'test', "obj.get returns the right value for a string");
-	equal(bool.get(), true, "obj.get returns the right value for a boolean");
+	deepEqual(num.get(), 5, "works with numbers");
+	deepEqual(str.get(), 'test', "works with strings");
+	deepEqual(bool.get(), true, "works with booleans");
 });
 
-test('ps.set (primitive)', function() {
+test('observable.get', function() {
+	var num = ps.create(5),
+		str = ps.create('test'),
+		bool = ps.create(true);
+
+	equal(num.get(), 5, "observable.get returns the right number");
+	equal(str.get(), 'test', "observable.get returns the right value for a string");
+	equal(bool.get(), true, "observable.get returns the right value for a boolean");
+});
+
+test('observable.set', function() {
 	var num = ps.create(5),
 		str = ps.create('test'),
 		bool = ps.create(true);
@@ -40,12 +37,12 @@ test('ps.set (primitive)', function() {
 	str.set('a different test');
 	bool.set(false);
 
-	equal(num.get(), 10, "obj.set changes the number value returned by get");
-	equal(str.get(), 'a different test', "obj.set changes the string value returned by get");
-	equal(bool.get(), false, "obj.set changes the boolean returned by get");
+	equal(num.get(), 10, "observable.set changes the number value returned by get");
+	equal(str.get(), 'a different test', "observable.set changes the string value returned by get");
+	equal(bool.get(), false, "observable.set changes the boolean returned by get");
 });
 
-test('ps.observable.trigger', function() {
+test('observable.trigger', function() {
 	var obs    = ps.create(0),
 		args   = ['a', 'b', 3, true],
 		called = {
@@ -63,7 +60,7 @@ test('ps.observable.trigger', function() {
 	equal( called['arbitrary'], 1, 'Arbitrary event called once' );
 });
 
-test('ps.observable.on / ps.observable.off / ps.observable.trigger', function() {
+test('observable.on / observable.off / observable.trigger', function() {
 	var vals   = [5, 10, 15],
 		obs    = ps.create(vals[0]),
 		called = {
@@ -104,7 +101,7 @@ test('ps.observable.on / ps.observable.off / ps.observable.trigger', function() 
 	equal( called['two'], 2, 'No more callbacks should trigger when `off` is called without a specific callback' );
 });
 
-test('ps.observable.on (primitive)', function() {
+test('observable.on', function() {
 	var values  = [5, 10, 15],
 		primObs = ps.create(values[0]),
 		called  = {
@@ -149,7 +146,7 @@ test('ps.observable.on (primitive)', function() {
 
 });
 
-test('ps.observable.set (primitive)', function() {
+test('observable.set (prevented)', function() {
 	var value = 5,
 		obs   = ps.create(value),
 		calls = 0;
@@ -161,4 +158,99 @@ test('ps.observable.set (primitive)', function() {
 	obs.set(value);
 
 	equal(calls, 0, "Calls to observable.set should not trigger a `change` event when the value doesn't change" );
+});
+
+module( "ps.observable (object)" );
+test('observable.set (object) : set via hash', function() {
+	var values = [5, 10, 15, 20],
+		obs    = ps.create({
+			propOne : values[0],
+			propTwo : values[1]
+		});
+
+	equal( obs.get('propOne'), values[0], 'Verify initial value is correct' );
+	equal( obs.get('propTwo'), values[1], 'Verify initial value is correct' );
+
+	// set via hash
+	obs.set({
+		propOne: values[2],
+		propTwo: values[3]
+	});
+
+	// verify change
+	equal( obs.get('propOne'), values[2], 'Property one changed correctly' );
+	equal( obs.get('propTwo'), values[3], 'Property two changed correctly' );
+
+});
+
+test('observable.set : callbacks', function() {
+	var values = [5, 10, 15, 20],
+		obs    = ps.create({property: values[0]}),
+		callOrder = [],
+		calls  = {
+			'before:change:property' : 0,
+			'change:property': 0,
+			'before:change': 0,
+			'change': 0
+		};
+
+	obs.on('before:change:property', function(oldVal, newVal, ctx) {
+		equal(oldVal, values[0], 'Argument 1 [before:change:property]: old value of property' );
+		equal(newVal, values[1], 'Argument 2 [before:change:property]: new value of property' );
+		equal(ctx, obs, 'Argument 3 [before:change:property]: observable object' );
+
+		calls['before:change:property'] += 1;
+		callOrder.push( 'before:change:property' );
+	});
+	obs.on('change:property', function(newVal, oldVal, ctx) {
+		equal(newVal, values[1], 'Argument 1 [change:property]: new value of property' );
+		equal(oldVal, values[0], 'Argument 2 [change:property]: old value of property' );
+		equal(ctx, obs, 'Argument 3 [change:property]: observable object' );
+
+		calls['change:property'] += 1;
+		callOrder.push( 'change:property' );
+	});
+	obs.on('before:change', function(oldObj, newObj, ctx) {
+		deepEqual( oldObj, {property: values[0]}, 'Argument 1 [before:change]: previous value of hash' );
+		deepEqual( newObj, {property: values[1]}, 'Argument 2 [before:change]: new value of hash' );
+		equal(ctx, obs, 'Argument 3 [before:change]: observable object' );
+
+		calls['before:change'] += 1;
+		callOrder.push( 'before:change' );
+	});
+	obs.on('change', function(newObj, oldObj, ctx) {
+		deepEqual(newObj, {property: values[1]}, 'Argument 1 [change]: new value of hash' );
+		deepEqual(oldObj, {property: values[0]}, 'Argument 2 [change]: previous value of hash' );
+		equal(ctx, obs, 'Argument 3 [change]: observable object' );
+
+		calls['change'] += 1;
+		callOrder.push( 'change' );
+	});
+
+	obs.set('property', values[1]);
+
+	deepEqual( callOrder, ['before:change:property', 'before:change', 'change:property', 'change'], 'Callbacks invoked in the proper order' );
+	equal( calls['before:change:property'], 1, '[before:change:property] called once' );
+	equal( calls['before:change'], 1, '[before:change] called once' );
+	equal( calls['change:property'], 1, '[change:property] called once' );
+	equal( calls['change'], 1, '[change] called once' );
+
+});
+
+test('observable.set (object) : `before` validation', function() {
+	var values = [5, 10, 15, 20],
+		obs1   = ps.create({property: values[0]}),
+		obs2   = ps.create({property: values[0]});
+
+	// prevent both objects from changing
+	obs1.on('before:change:property', function(){ return false; });
+	obs2.on('before:change', function(){ return false; });
+
+	// attempt to change both objects
+	obs1.set('property', values[1]);
+	obs2.set('property', values[1]);
+
+	equal( obs1.get('property'), values[0], '[before:change:property] can prevent a property from changing' );
+	equal( obs2.get('property'), values[0], '[before:change] can prevent an object from changing' );
+
 });
