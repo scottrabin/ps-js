@@ -148,3 +148,17 @@ test('ps.observable.on (primitive)', function() {
 	equal( primObs.get(), values[1], 'If a `before:change` callback returns false, the change will be aborted' );
 
 });
+
+test('ps.observable.set (primitive)', function() {
+	var value = 5,
+		obs   = ps.create(value),
+		calls = 0;
+
+	obs.on('change', function() {
+		calls += 1;
+	});
+
+	obs.set(value);
+
+	equal(calls, 0, "Calls to observable.set should not trigger a `change` event when the value doesn't change" );
+});
