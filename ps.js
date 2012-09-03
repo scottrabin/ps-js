@@ -1,21 +1,63 @@
 (function(root, factory) {
 	if (typeof define === 'function' && define.amd) {
 		// AMD; don't export to window globals
-		define(factory);
+		define(['is'], factory);
 	} else {
-		root.ps = factory();
+		root.ps = factory(root.is);
 	}
 }(this, function(is) {
 
 	// convenience
 	var __slice = Array.prototype.slice,
-		__isFunction = function(f) { return 'function' === typeof f; },
+		__hasOwn = Object.prototype.hasOwnProperty,
 
-	// internal use only
-
+		// internal use only
 		__getValue = function() { return this._value; },
 		__setValue = function(v) { this._value = v; },
 
+		__extend = function(target) {
+			for(var i = 1, p ; i < arguments.length ; i++) {
+				for(p in arguments[i]) {
+					if (__hasOwn.call(arguments[i], p)) {
+						target[p] = arguments[i][p];
+					}
+				}
+			}
+
+			return target;
+		},
+
+		/**
+		 * Creates a valid subclass of a given parent class
+		 * http://ejohn.org/blog/simple-javascript-inheritance/
+		 */
+		__subclass = function(parent, properties) {
+			// create the new class
+			var newClass    = function(){
+					var args = __slice.call(arguments, 0);
+					parent.apply(this, args);
+
+					if (is.fn(properties.init)) {
+						properties.init.apply(this, args);
+					}
+				},
+				// basic prototype
+				parentProto = new parent();
+
+			// copy all the properties in the given properties object to the prototype
+			for(var property in properties) {
+				parentProto[property] = properties[property];
+			}
+
+			// set the prototype of the new class
+			newClass.prototype = parentProto;
+
+			// reset the constructor
+			newClass.prototype.constructor = newClass;
+
+			// return the new class
+			return newClass;
+		},
 		/**
 		 * Runs through an arbitrary list of functions
 		 */
@@ -43,64 +85,17 @@
 		};
 
 	/**
-	 * Basic observable object type
+	 * Base observable object type
 	 */
-	function Observable(val) {
+	function ObservableBase() {
 		// create an empty hash for function listeners
 		this._listeners = {};
-
-		// set the initial value
-		this.set(val);
 	}
-	/**
-	 * INTERNAL USE ONLY
-	 * Gets the current value of the observable item
-	 * @private
-	 */
-	Observable.prototype._get = __getValue;
-	/**
-	 * INTERNAL USE ONLY
-	 * Sets the current value of the observable item
-	 * @private
-	 */
-	Observable.prototype._set = function(v) {
-		return v;
-	};
-
-	/**
-	 * Basic observable set - sets the current value of the observable
-	 */
-	Observable.prototype.set = function() {
-		var args     = __slice.call(arguments, 0),
-			// store the old value
-			oldValue = this._get.apply(this, args)
-			// determine the actual new value
-			newValue = this._set.apply(this, args);
-
-		// only perform the set action if the value actually changes
-		if (oldValue !== newValue) {
-			__performAction(
-				this,                       // observable
-				'change',                   // event
-				__setValue,                 // action
-				[oldValue, newValue, this], // arguments to `before` callbacks
-				[newValue],                 // arguments to action
-				[newValue, oldValue, this]  // arguments to "after" callbacks
-			);
-		}
-
-		// chain
-		return this;
-	};
-	/**
-	 * Basic observable get - gets the current value of the observable
-	 */
-	Observable.prototype.get = __getValue;
 
 	/**
 	 * Bind a callback to a given event
 	 */
-	Observable.prototype.on = function(event, callback) {
+	ObservableBase.prototype.on = function(event, callback) {
 		var listeners = this._listeners[event];
 
 		// verify the listener array exists
@@ -118,9 +113,9 @@
 	/**
 	 * Remove a callback from a given event
 	 */
-	Observable.prototype.off = function(event, callback) {
+	ObservableBase.prototype.off = function(event, callback) {
 		// if callback is a function, then remove it from the callback list
-		if ( __isFunction(callback) ) {
+		if ( is.fn(callback) ) {
 			for (var i = 0 ; i < this._listeners[event].length ; i++) {
 				if (this._listeners[event][i] === callback) {
 					this._listeners[event].splice(i--, 1);
@@ -141,7 +136,7 @@
 	/**
 	 * Trigger an event on the observable object
 	 */
-	Observable.prototype.trigger = function(event) {
+	ObservableBase.prototype.trigger = function(event) {
 
 		// invoke the appropriate set of callbacks
 		__serialInvoke(
@@ -153,11 +148,153 @@
 		// chain
 		return this;
 	};
-		
 
+	/**
+	 * Primitive observable object type
+	 */
+	var Observable = __subclass(ObservableBase, {
+		init: function(initialValue) {
+			// set the initial value
+			this.set(initialValue);
+		},
+		/**
+		 * INTERNAL USE ONLY
+		 * Sets the current value of the observable item
+		 * @private
+		 */
+		_set: function(v) {
+			return v;
+		},
+		/**
+		 * Basic observable set - sets the current value of the observable
+		 */
+		set : function(v) {
+			var args     = __slice.call(arguments, 0),
+				// store the old value
+				oldValue = this._get.apply(this, args)
+				// determine the actual new value
+				newValue = this._set.apply(this, args);
+
+			// only perform the set action if the value actually changes
+			if (oldValue !== newValue) {
+				__performAction(
+					this,                       // observable
+					'change',                   // event
+					__setValue,                 // action
+					[oldValue, newValue, this], // arguments to `before` callbacks
+					[newValue],                 // arguments to action
+					[newValue, oldValue, this]  // arguments to "after" callbacks
+				);
+			}
+
+			// chain
+			return this;
+		},
+		/**
+		 * INTERNAL USE ONLY
+		 * Gets the current value of the observable item
+		 * @private
+		 */
+		_get: __getValue,
+		/**
+		 * Basic observable get - gets the current value of the observable
+		 */
+		get : __getValue
+	});
+
+	/**********************/
+	/* Observable objects */
+	/**********************/
+
+	var ObservableObject = __subclass(ObservableBase, {
+		init: function(hash) {
+			// set initial value
+			this._value = {};
+
+			// copy properties
+			__extend(this._value, hash);
+
+			// temporary store of previous values for attributes
+			this._previous = __extend({}, this._value);
+		},
+		get : function(prop) {
+			return (prop ? this._value[prop] : this._value);
+		},
+		set : function(prop, value) {
+			var willChange = false,
+				changeTo   = __extend({}, this._value),
+				p;
+
+			// two signatures: as a hash, or as [key, value]
+			// transform the key,value into a hash to use the same code path
+			if (arguments.length === 2) {
+				p = {};
+				p[prop] = value;
+				prop = p;
+			}
+
+			// as hash
+			for(p in prop) {
+				if (__hasOwn.call(prop, p)) {
+					// if there would be a change
+					if (this._value[p] !== prop[p]) {
+						// copy property if OK, break early otherwise
+						// break early if it's invalid
+						if( __serialInvoke(
+							this._listeners['before:change:' + p],
+								[this._value[p], prop[p], this],
+							this
+						)) {
+							changeTo[p] = prop[p];
+						} else {
+							return this;
+						}
+					}
+				}
+			}
+
+			// all [before:change:property] listeners have passed, run overall [before:change] validator
+			if ( !__serialInvoke(
+				this._listeners['before:change'],
+					[this._value, changeTo, this],
+				this
+			)) {
+				return this;
+			}
+
+			// all [before:change...] validation passed, commit the values
+			this._previous = this._value;
+			this._value    = changeTo;
+
+			// run after change events for attributes
+			for(p in prop) {
+				if (__hasOwn.call(prop, p)) {
+					__serialInvoke(
+						this._listeners['change:' + p],
+						[this._value[p], this._previous[p], this],
+						this
+					);
+				}
+			}
+			__serialInvoke(
+				this._listeners['change'],
+				[this._value, this._previous, this],
+				this
+			);
+
+			return this;
+		}
+	});
+
+	// Exports
 	return {
 		create: function(v) {
-			return new Observable(v);
+			// dispatch on type
+			if ( !v || is.string(v) || is.number(v) || is.bool(v) || is.array(v) ) {
+				return new Observable(v);
+			} else {
+				return new ObservableObject(v);
+			}
 		}
 	};
 }));
